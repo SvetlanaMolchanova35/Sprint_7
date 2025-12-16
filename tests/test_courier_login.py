@@ -1,76 +1,66 @@
 import allure
 import pytest
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from helpers import ScooterApi
+from config.urls import Urls
+from data.messages import Messages
 
 
 class TestCourierLogin:
     @allure.title("Позитивный тест: Логин курьера")
-    def test_login_courier_success(self):
+    def test_login_courier_success(self, setup_courier):
         """Тест на успешный логин курьера"""
-        api = ScooterApi()
+        setup_data = setup_courier
+        api = setup_data["api"]
         
-        with allure.step("Регистрация курьера"):
-            courier_data = api.register_new_courier()
-            assert courier_data["response"].status_code == 201
+        response = api.login_courier(
+            setup_data["login"],
+            setup_data["password"]
+        )
         
-        with allure.step("Логин курьера"):
-            response = api.login_courier(
-                courier_data["login"],
-                courier_data["password"]
-            )
-            
-            assert response.status_code == 200
-            
-            response_json = response.json()
-            assert "id" in response_json
-            assert isinstance(response_json["id"], int)
+        assert response.status_code == 200
         
-        with allure.step("Удаление тестового курьера"):
-            courier_id = response.json()["id"]
-            api.delete_courier(courier_id)
+        response_json = response.json()
+        assert "id" in response_json
+        assert isinstance(response_json["id"], int)
     
     @allure.title("Негативный тест: Логин без логина")
-    def test_login_without_login(self):
+    def test_login_without_login(self, api_client):
         """Тест на логин без указания логина"""
-        api = ScooterApi()
+        api = api_client
         
         payload = {
             "password": api.generate_random_string(10)
         }
         
         response = api.session.post(
-            f"{api.BASE_URL}/api/v1/courier/login",
+            Urls.BASE_URL + Urls.LOGIN_COURIER,
             data=payload
         )
         
         assert response.status_code == 400
-        assert response.json()["message"] == "Недостаточно данных для входа"
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_LOGIN
     
     @allure.title("Негативный тест: Логин без пароля")
-    def test_login_without_password(self):
+    def test_login_without_password(self, api_client):
         """Тест на логин без указания пароля"""
-        api = ScooterApi()
+        api = api_client
         
         payload = {
             "login": api.generate_random_string(10)
         }
         
         response = api.session.post(
-            f"{api.BASE_URL}/api/v1/courier/login",
+            Urls.BASE_URL + Urls.LOGIN_COURIER,
             data=payload
         )
         
         assert response.status_code == 400
-        assert response.json()["message"] == "Недостаточно данных для входа"
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_LOGIN
     
     @allure.title("Негативный тест: Логин с неверными данными")
-    def test_login_with_wrong_credentials(self):
+    def test_login_with_wrong_credentials(self, api_client):
         """Тест на логин с неверными учетными данными"""
-        api = ScooterApi()
+        api = api_client
         
         payload = {
             "login": "nonexistent_user",
@@ -78,7 +68,7 @@ class TestCourierLogin:
         }
         
         response = api.session.post(
-            f"{api.BASE_URL}/api/v1/courier/login",
+            Urls.BASE_URL + Urls.LOGIN_COURIER,
             data=payload
         )
         

@@ -36,8 +36,12 @@ env/
 Thumbs.db
 
 # Allure
+allure-results/
 allure-report/
 
 # Coverage
 .coverage
 htmlcov/
+
+# pytest cache
+.pytest_cache/

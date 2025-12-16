@@ -2,27 +2,20 @@ import pytest
 import sys
 import os
 
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Добавляем корневую директорию в путь Python
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Импортируем фикстуры из helpers
+from helpers import api_client, data_generator
+
+# Импортируем классы для создания сложных фикстур
 from helpers import ScooterApi, DataGenerator
-
-
-@pytest.fixture
-def api_client():
-    """Фикстура для создания клиента API"""
-    return ScooterApi()
-
-
-@pytest.fixture
-def data_generator():
-    """Фикстура для генератора данных"""
-    return DataGenerator()
+import allure
 
 
 @pytest.fixture
 def setup_courier():
-    """Фикстура для создания и удаления тестового курьера"""
+    """Сложная фикстура для создания и удаления тестового курьера"""
     api = ScooterApi()
     
     # Создание курьера
@@ -54,7 +47,7 @@ def setup_courier():
 
 @pytest.fixture
 def setup_order():
-    """Фикстура для создания и удаления тестового заказа"""
+    """Сложная фикстура для создания и удаления тестового заказа"""
     api = ScooterApi()
     data_gen = DataGenerator()
     
@@ -69,6 +62,33 @@ def setup_order():
     
     yield {
         "api": api,
+        "order_data": order_data,
+        "track": track
+    }
+    
+    # Отмена заказа после теста
+    if track:
+        api.cancel_order(track)
+
+
+@pytest.fixture
+def setup_courier_and_order(setup_courier):
+    """Сложная фикстура для создания курьера и заказа"""
+    courier_fixture = setup_courier
+    api = courier_fixture["api"]
+    data_gen = DataGenerator()
+    
+    # Создание заказа
+    order_data = data_gen.generate_order_data(["BLACK"])
+    response = api.create_order(order_data)
+    
+    if response.status_code == 201:
+        track = response.json()["track"]
+    else:
+        track = None
+    
+    yield {
+        **courier_fixture,
         "order_data": order_data,
         "track": track
     }

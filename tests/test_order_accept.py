@@ -1,86 +1,62 @@
 import allure
 import pytest
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from helpers import ScooterApi, DataGenerator
+from config.urls import Urls
+from data.messages import Messages
 
 
 class TestOrderAccept:
     @allure.title("Позитивный тест: Принятие заказа курьером")
-    def test_accept_order_success(self):
-        """Тест на успешное принятие заказа"""
-        api = ScooterApi()
-        data_gen = DataGenerator()
+    def test_accept_order_success(self, setup_courier_and_order):
+        """Тест на успешное принятие заказа с использованием фикстуры"""
+        setup_data = setup_courier_and_order
+        api = setup_data["api"]
+        track = setup_data["track"]
+        courier_id = setup_data["courier_id"]
         
-        with allure.step("Создание тестового курьера"):
-            courier_data = api.register_new_courier()
-            login_response = api.login_courier(
-                courier_data["login"],
-                courier_data["password"]
-            )
-            courier_id = login_response.json()["id"]
-        
-        with allure.step("Создание тестового заказа"):
-            order_data = data_gen.generate_order_data(["BLACK"])
-            create_order_response = api.create_order(order_data)
-            assert create_order_response.status_code == 201
-            track = create_order_response.json()["track"]
-        
-        with allure.step("Получение ID заказа по трек-номеру"):
-            track_response = api.get_order_by_track(track)
-            assert track_response.status_code == 200
-            order_id = track_response.json()["order"]["id"]
-        
-        with allure.step("Принятие заказа курьером"):
-            response = api.accept_order(order_id, courier_id)
-            assert response.status_code == 200
-            assert response.json()["ok"] is True
-        
-        with allure.step("Очистка тестовых данных"):
-            api.cancel_order(track)
-            api.delete_courier(courier_id)
-    
-    @allure.title("Негативный тест: Принятие заказа без ID курьера")
-    def test_accept_order_without_courier_id(self):
-        """Тест на принятие заказа без указания ID курьера"""
-        api = ScooterApi()
-        
-        data_gen = DataGenerator()
-        order_data = data_gen.generate_order_data(["BLACK"])
-        create_order_response = api.create_order(order_data)
-        track = create_order_response.json()["track"]
-        
+        # Получение ID заказа по трек-номеру
         track_response = api.get_order_by_track(track)
         order_id = track_response.json()["order"]["id"]
         
+        # Принятие заказа курьером
+        response = api.accept_order(order_id, courier_id)
+        
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+    
+    @allure.title("Негативный тест: Принятие заказа без ID курьера")
+    def test_accept_order_without_courier_id(self, setup_order):
+        """Тест на принятие заказа без указания ID курьера"""
+        setup_data = setup_order
+        api = setup_data["api"]
+        track = setup_data["track"]
+        
+        # Получение ID заказа
+        track_response = api.get_order_by_track(track)
+        order_id = track_response.json()["order"]["id"]
+        
+        # Пытаемся принять заказ без courierId в параметрах
         response = api.session.put(
-            f"{api.BASE_URL}/api/v1/orders/accept/{order_id}"
+            Urls.BASE_URL + Urls.ACCEPT_ORDER.format(id=order_id)
         )
         
         assert response.status_code == 400
-        assert response.json()["message"] == "Недостаточно данных для поиска"
-        
-        api.cancel_order(track)
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_SEARCH
     
     @allure.title("Негативный тест: Принятие заказа с несуществующим ID курьера")
-    def test_accept_order_with_nonexistent_courier(self):
+    def test_accept_order_with_nonexistent_courier(self, setup_order):
         """Тест на принятие заказа несуществующим курьером"""
-        api = ScooterApi()
+        setup_data = setup_order
+        api = setup_data["api"]
+        track = setup_data["track"]
         
-        data_gen = DataGenerator()
-        order_data = data_gen.generate_order_data(["BLACK"])
-        create_order_response = api.create_order(order_data)
-        track = create_order_response.json()["track"]
-        
+        # Получение ID заказа
         track_response = api.get_order_by_track(track)
         order_id = track_response.json()["order"]["id"]
         
+        # Пытаемся принять заказ несуществующим курьером
         nonexistent_courier_id = 999999
         response = api.accept_order(order_id, nonexistent_courier_id)
         
         assert response.status_code == 400
-        assert response.json()["message"] == "Недостаточно данных для поиска"
-        
-        api.cancel_order(track)
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_SEARCH

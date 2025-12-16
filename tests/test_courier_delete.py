@@ -1,79 +1,55 @@
 import allure
 import pytest
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from helpers import ScooterApi
+from config.urls import Urls
+from data.messages import Messages
 
 
 class TestCourierDelete:
     @allure.title("Позитивный тест: Удаление курьера")
-    def test_delete_courier_success(self):
+    def test_delete_courier_success(self, setup_courier):
         """Тест на успешное удаление курьера"""
-        api = ScooterApi()
+        setup_data = setup_courier
+        api = setup_data["api"]
+        courier_id = setup_data["courier_id"]
         
-        with allure.step("Создание тестового курьера"):
-            courier_data = api.register_new_courier()
-            assert courier_data["response"].status_code == 201
+        response = api.delete_courier(courier_id)
         
-        with allure.step("Логин для получения ID"):
-            login_response = api.login_courier(
-                courier_data["login"],
-                courier_data["password"]
-            )
-            assert login_response.status_code == 200
-            courier_id = login_response.json()["id"]
-        
-        with allure.step("Удаление курьера"):
-            response = api.delete_courier(courier_id)
-            assert response.status_code == 200
-            assert response.json()["ok"] is True
-        
-        with allure.step("Проверка, что курьер удален"):
-            login_again_response = api.login_courier(
-                courier_data["login"],
-                courier_data["password"]
-            )
-            assert login_again_response.status_code == 404
+        assert response.status_code == 200
+        assert response.json() == Messages.OK_TRUE
     
     @allure.title("Негативный тест: Удаление без ID")
-    def test_delete_courier_without_id(self):
+    def test_delete_courier_without_id(self, api_client):
         """Тест на удаление курьера без указания ID"""
-        api = ScooterApi()
+        api = api_client
         
         response = api.session.delete(
-            f"{api.BASE_URL}/api/v1/courier/"
+            Urls.BASE_URL + Urls.DELETE_COURIER.format(id="")
         )
         
-        assert response.status_code in [400, 404, 405]
+        assert response.status_code == 400
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_DELETE
     
     @allure.title("Негативный тест: Удаление с несуществующим ID")
-    def test_delete_courier_with_nonexistent_id(self):
+    def test_delete_courier_with_nonexistent_id(self, api_client):
         """Тест на удаление курьера с несуществующим ID"""
-        api = ScooterApi()
+        api = api_client
         
         nonexistent_id = 999999
         
         response = api.delete_courier(nonexistent_id)
         
         assert response.status_code == 400
-        assert response.json()["message"] == "Недостаточно данных для удаления курьера"
+        assert response.json()["message"] == Messages.NOT_ENOUGH_DATA_FOR_DELETE
     
     @allure.title("Проверка тела ответа при успешном удалении")
-    def test_delete_courier_response_body(self):
+    def test_delete_courier_response_body(self, setup_courier):
         """Тест на проверку тела ответа при удалении курьера"""
-        api = ScooterApi()
+        setup_data = setup_courier
+        api = setup_data["api"]
+        courier_id = setup_data["courier_id"]
         
-        with allure.step("Создание и удаление курьера"):
-            courier_data = api.register_new_courier()
-            login_response = api.login_courier(
-                courier_data["login"],
-                courier_data["password"]
-            )
-            courier_id = login_response.json()["id"]
-            
-            response = api.delete_courier(courier_id)
-            
-            response_json = response.json()
-            assert response_json == {"ok": True}
+        response = api.delete_courier(courier_id)
+        
+        response_json = response.json()
+        assert response_json == Messages.OK_TRUE

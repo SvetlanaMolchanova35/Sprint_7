@@ -2,12 +2,13 @@ import requests
 import random
 import string
 import allure
-from faker import Faker
+import datetime
+import pytest
+from config.urls import Urls
+from data.messages import Messages
 
 
 class ScooterApi:
-    BASE_URL = "https://qa-scooter.praktikum-services.ru"
-    
     def __init__(self):
         self.session = requests.Session()
     
@@ -18,7 +19,6 @@ class ScooterApi:
     
     @allure.step("Регистрация нового курьера")
     def register_new_courier(self):
-        """Метод для регистрации нового курьера"""
         login = self.generate_random_string(10)
         password = self.generate_random_string(10)
         first_name = self.generate_random_string(10)
@@ -30,7 +30,7 @@ class ScooterApi:
         }
         
         response = self.session.post(
-            f"{self.BASE_URL}/api/v1/courier",
+            Urls.BASE_URL + Urls.CREATE_COURIER,
             data=payload
         )
         
@@ -43,14 +43,13 @@ class ScooterApi:
     
     @allure.step("Логин курьера")
     def login_courier(self, login, password):
-        """Метод для авторизации курьера"""
         payload = {
             "login": login,
             "password": password
         }
         
         response = self.session.post(
-            f"{self.BASE_URL}/api/v1/courier/login",
+            Urls.BASE_URL + Urls.LOGIN_COURIER,
             data=payload
         )
         
@@ -58,18 +57,16 @@ class ScooterApi:
     
     @allure.step("Удаление курьера")
     def delete_courier(self, courier_id):
-        """Метод для удаления курьера"""
         response = self.session.delete(
-            f"{self.BASE_URL}/api/v1/courier/{courier_id}"
+            Urls.BASE_URL + Urls.DELETE_COURIER.format(id=courier_id)
         )
         
         return response
     
     @allure.step("Создание заказа")
     def create_order(self, order_data):
-        """Метод для создания заказа"""
         response = self.session.post(
-            f"{self.BASE_URL}/api/v1/orders",
+            Urls.BASE_URL + Urls.CREATE_ORDER,
             json=order_data
         )
         
@@ -77,9 +74,8 @@ class ScooterApi:
     
     @allure.step("Получение списка заказов")
     def get_orders_list(self, params=None):
-        """Метод для получения списка заказов"""
         response = self.session.get(
-            f"{self.BASE_URL}/api/v1/orders",
+            Urls.BASE_URL + Urls.GET_ORDERS,
             params=params
         )
         
@@ -87,9 +83,8 @@ class ScooterApi:
     
     @allure.step("Получение заказа по трек-номеру")
     def get_order_by_track(self, track):
-        """Метод для получения заказа по трек-номеру"""
         response = self.session.get(
-            f"{self.BASE_URL}/api/v1/orders/track",
+            Urls.BASE_URL + Urls.GET_ORDER_BY_TRACK,
             params={"t": track}
         )
         
@@ -97,9 +92,8 @@ class ScooterApi:
     
     @allure.step("Принятие заказа курьером")
     def accept_order(self, order_id, courier_id):
-        """Метод для принятия заказа"""
         response = self.session.put(
-            f"{self.BASE_URL}/api/v1/orders/accept/{order_id}",
+            Urls.BASE_URL + Urls.ACCEPT_ORDER.format(id=order_id),
             params={"courierId": courier_id}
         )
         
@@ -107,9 +101,8 @@ class ScooterApi:
     
     @allure.step("Отмена заказа")
     def cancel_order(self, track):
-        """Метод для отмены заказа"""
         response = self.session.put(
-            f"{self.BASE_URL}/api/v1/orders/cancel",
+            Urls.BASE_URL + Urls.CANCEL_ORDER,
             params={"track": track}
         )
         
@@ -117,23 +110,31 @@ class ScooterApi:
 
 
 class DataGenerator:
-    """Класс для генерации тестовых данных"""
-    
     def __init__(self):
-        self.fake = Faker('ru_RU')
+        self.russian_names = ["Иван", "Петр", "Сергей", "Алексей", "Дмитрий", 
+                              "Андрей", "Михаил", "Александр", "Николай", "Владимир"]
+        self.russian_lastnames = ["Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов", 
+                                  "Попов", "Васильев", "Михайлов", "Новиков", "Федоров"]
+        self.streets = ["Ленина", "Гагарина", "Пушкина", "Мира", "Советская", 
+                        "Центральная", "Молодежная", "Школьная", "Садовая", "Набережная"]
+    
+    def _generate_russian_name(self):
+        return random.choice(self.russian_names)
+    
+    def _generate_russian_last_name(self):
+        return random.choice(self.russian_lastnames)
     
     @allure.step("Генерация данных для заказа")
     def generate_order_data(self, color=None):
-        """Генерация данных для создания заказа"""
         order_data = {
-            "firstName": self.fake.first_name(),
-            "lastName": self.fake.last_name(),
-            "address": self.fake.address(),
+            "firstName": self._generate_russian_name(),
+            "lastName": self._generate_russian_last_name(),
+            "address": f"ул. {random.choice(self.streets)}, д. {random.randint(1, 100)}, кв. {random.randint(1, 200)}",
             "metroStation": str(random.randint(1, 10)),
-            "phone": f"+7{self.fake.numerify('##########')}",
+            "phone": f"+79{random.randint(100000000, 999999999)}",
             "rentTime": random.randint(1, 7),
-            "deliveryDate": self.fake.date_this_year().isoformat(),
-            "comment": self.fake.text(max_nb_chars=50),
+            "deliveryDate": (datetime.date.today() + datetime.timedelta(days=random.randint(1, 30))).isoformat(),
+            "comment": "Позвоните за час до доставки",
         }
         
         if color is not None:
@@ -142,6 +143,17 @@ class DataGenerator:
         return order_data
     
     def generate_random_string(self, length=10):
-        """Генерация случайной строки"""
         letters = string.ascii_lowercase
         return ''.join(random.choice(letters) for i in range(length))
+
+
+# Простые фикстуры, которые должны храниться в helpers.py согласно ревью
+@pytest.fixture
+def api_client():
+    """Фикстура для создания клиента API"""
+    return ScooterApi()
+
+@pytest.fixture
+def data_generator():
+    """Фикстура для генератора данных"""
+    return DataGenerator()

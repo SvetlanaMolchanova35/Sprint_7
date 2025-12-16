@@ -1,16 +1,13 @@
 import allure
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from helpers import ScooterApi
+from config.urls import Urls
 
 
 class TestOrderList:
     @allure.title("Получение списка заказов")
-    def test_get_orders_list(self):
+    def test_get_orders_list(self, api_client):
         """Тест на получение списка заказов"""
-        api = ScooterApi()
+        api = api_client
         
         response = api.get_orders_list()
         
@@ -28,9 +25,9 @@ class TestOrderList:
         assert "limit" in page_info
     
     @allure.title("Получение списка заказов с лимитом")
-    def test_get_orders_list_with_limit(self):
+    def test_get_orders_list_with_limit(self, api_client):
         """Тест на получение списка заказов с ограничением количества"""
-        api = ScooterApi()
+        api = api_client
         
         params = {"limit": 5}
         response = api.get_orders_list(params)
